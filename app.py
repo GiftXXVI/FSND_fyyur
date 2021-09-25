@@ -10,12 +10,13 @@ from flask import Flask, render_template, request, Response, flash, redirect, ur
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 import logging
-from logging import Formatter, FileHandler
+from logging import ERROR, Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
 from flask_migrate import Migrate
 import datetime
 from datetime import datetime
+import sys
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -65,9 +66,11 @@ class Artist(db.Model):
     state = db.Column(db.String(120))
     phone = db.Column(db.String(120))
     genres = db.Column(db.String(120))
-    website = db.Column(db.String(120))
+    website_link = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
+    seeking_venue = db.Column(db.Boolean, nullable=False)
+    seeking_description = db.Column(db.String(), nullable=True)
     shows = db.relationship('Show', backref='artist', lazy=True)
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
@@ -423,8 +426,7 @@ def edit_venue(venue_id):
         form.genres.data = venue['genres']
         form.state.data = venue['state']
     except:
-        flash('An error occurred. Venue id' +
-              venue_id + ' could not be found.')
+        flash(f'An error occurred. Venue id {venue_id} could not be found.')
         error = True
     finally:
         if not error:
@@ -457,7 +459,8 @@ def edit_venue_submission(venue_id):
     except:
         db.session.rollback()
         error = True
-        flash('Unable to modify Venue ' + request.form['name'] + '! sk')
+        flash('Unable to modify Venue {rname}!'.format(
+            rname=request.form['name']))
     finally:
         db.session.close()
         if not error:
@@ -477,14 +480,43 @@ def create_artist_form():
 
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
+    error = False
     # called upon submitting the new artist listing form
     # TODO: insert form data as a new Venue record in the db, instead
     # TODO: modify data to be the data object returned from db insertion
+    try:
+        name = request.form['name']
+        city = request.form['city']
+        state = request.form['state']
+        phone = request.form['phone']
+        genres = ','.join(request.form.getlist('genres'))
+        website_link = request.form['website_link']
+        image_link = request.form['image_link']
+        facebook_link = request.form['facebook_link']
+        seeking_venue = True if request.form.get(
+            'seeking_venue') == 'y' else False
+        seeking_description = request.form.get('seeking_description')
+        artist = Artist(name=name, city=city, state=state, phone=phone, genres=genres,
+                        website_link=website_link, image_link=image_link, facebook_link=facebook_link, seeking_venue=seeking_venue, seeking_description=seeking_description)
+        db.session.add(artist)
+        db.session.commit()
+        db.session.refresh(artist)
+        data = artist
+    except:
+        db.session.rollback()
+        error = True
+        message = str(sys.exc_info())
+    finally:
+        db.session.close()
+    if not error:
+        # on successful db insert, flash success
+        flash(f'Artist {data.name} was successfully listed!')
+    else:
+        # TODO: on unsuccessful db insert, flash an error instead.
+        # # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
+        flash('An error occurred. Artist {rname} could not be listed.'.format(
+            rname=request.form['name']))
 
-    # on successful db insert, flash success
-    flash('Artist ' + request.form['name'] + ' was successfully listed!')
-    # TODO: on unsuccessful db insert, flash an error instead.
-    # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
     return render_template('pages/home.html')
 
 
