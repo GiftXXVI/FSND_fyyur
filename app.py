@@ -170,6 +170,12 @@ def create_venue_submission():
     # TODO: modify data to be the data object returned from db insertion
 
     # on successful db insert, flash success
+    form = VenueForm(request.POST)
+    if request.POST and form.validate():
+        message = "Form is valid"
+    else:
+        message = "Form not valid"
+
     error = False
     try:
         name = request.form.get('name')
@@ -192,7 +198,7 @@ def create_venue_submission():
         db.session.commit()
         db.session.refresh(venue)
         data = venue
-        flash('Venue ' + data.name + ' was successfully created!')
+        flash('Venue ' + data.name + ' was successfully created!, message' + message)
 
         # TODO: on unsuccessful db insert, flash an error instead.
         # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
