@@ -24,10 +24,11 @@ import sys
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+
 
 # TODO: connect to a local postgresql database
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 #----------------------------------------------------------------------------#
 # Models.
@@ -36,7 +37,43 @@ migrate = Migrate(app, db)
 #SQL: CREATE TABLE venue(id integer PRIMARY KEY, name varchar, genres varchar(120), city varchar(120), state varchar(120),
 # address varchar(120), phone varchar(120), website_link varchar(120), image_link varchar(120), facebook_link varchar(120),
 # seeking_talent boolean NOT NULL, seeking_description varchar(120));
+
 class Venue(db.Model):
+
+    """
+    A model class used to represent a Venue
+    ...
+
+    Attributes
+    ----------
+    id : int
+        the venue's primary key
+    name : str
+        the name of the venue
+    genres : str
+        the list of genres preferred by the venue
+    city : str
+        the city where the venue is located
+    state : str
+        the state where the venue is located
+    address : str
+        the address where the venue is located
+    phone : str
+        the phone number of the venue
+    state : str
+        the state where the venue is located
+    website_link : str
+        the link to the venue's website
+    image_link : str
+        the link to an image of the venue
+    facebook_link : str
+        the link to the venue's facebook page
+    seeking_talent : boolean
+        indicator for whether the venue is seeking artists or not
+    seeking_description:
+        description of type of artists the venue is seeking
+    """
+
     __tablename__ = 'venue'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -58,10 +95,47 @@ class Venue(db.Model):
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
     
+# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
+
 #SQL: CREATE TABLE artist(id integer PRIMARY KEY, name varchar, city varchar(120), state varchar(120), phone varchar(120),
 # genres varchar(120), website_link varchar(120), image_link varchar(120), facebook_link varchar(120), seeking_venue boolean NOT NULL,
 # seeking_description varchar);
 class Artist(db.Model):
+    
+    """
+    A model class used to represent an Artist
+    ...
+
+    Attributes
+    ----------
+    id : int
+        the artist's primary key
+    name : str
+        the name of the artist
+    genres : str
+        the list of genres of the artist's music
+    city : str
+        the city where the artist resides
+    state : str
+        the state where the artist resides
+    address : str
+        the address where the artist resides
+    phone : str
+        the phone number of the artist
+    state : str
+        the state where the artist resides
+    website_link : str
+        the link to the artist's website
+    image_link : str
+        the link to an image of the artist
+    facebook_link : str
+        the link to the artist's facebook page
+    seeking_talent : boolean
+        indicator for whether the artist is seeking artists or not
+    seeking_description:
+        description of type of venues that the artist is seeking
+    """
+
     __tablename__ = 'artist'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -79,12 +153,27 @@ class Artist(db.Model):
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
-
 #SQL: CREATE TABLE show(id integer PRIMARY KEY, artist_id integer, venue_id integer, start_time timestamp,
 # CONSTRAINT show_artist FOREIGN KEY(artist_id) REFERENCES artist(id) ON DELETE CASCADE, 
 # CONSTRAINT show_venue FOREIGN KEY(venue_id) REFERENCES venue(id) ON DELETE CASCADE);
 class Show(db.Model):
+
+    """
+    A model class used to represent a Show
+    ...
+
+    Attributes
+    ----------
+    id : int
+        the show's primary key
+    artist_id : int
+        the primary key of the artist
+    venue_id : int
+        the primary key of the venue
+    start_time : datetime
+        the show's starting time
+    """
+
     __tablename__ = "show"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -242,7 +331,9 @@ def create_venue_submission():
         #VALUES({NAME},{GENRES},{CITY},{STATE},{ADDRESS},{PHONE},{WEBSITE_LINK},{IMAGE_LINK},{FACEBOOK_LINK},{SEEKING_TALENT},{SEEKING_DESCRIPTION})
         db.session.add(venue)
         db.session.commit()
-        flash('Venue ' + request.form['name'] + ' was successfully created!')
+        db.session.refresh(venue)
+        data = venue
+        flash('Venue ' + data.name + ' was successfully created!')
 
         # TODO: on unsuccessful db insert, flash an error instead.
         # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
@@ -264,6 +355,8 @@ def create_venue_submission():
 def delete_venue(venue_id):
     # TODO: Complete this endpoint for taking a venue_id, and using
     # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
+    # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
+    # clicking that button delete it from the db then redirect the user to the homepage
     error = False
     response = {'url': '', 'error': 0}
     try:
@@ -275,8 +368,7 @@ def delete_venue(venue_id):
         error = True
     finally:
         db.session.close()
-    # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
-    # clicking that button delete it from the db then redirect the user to the homepage
+    
     if not error:
         response['url'] = '/venues'
     else:
@@ -300,6 +392,9 @@ def artists():
 
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
+    # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
+    # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
+    # search for "band" should return "The Wild Sax Band".
     try:
         artists = Artist.query.filter(Artist.name.ilike(
             '%{rname}%'.format(rname=request.form.get('search_term', ''))))
@@ -308,9 +403,7 @@ def search_artists():
         data = [{"id": artist.id, "name": artist.name, "num_upcoming_shows": Show.query.filter_by(artist_id=artist.id).filter(Show.start_time > now).count()}
                 for artist in artists]
         #SQL: SELECT * FROM show WHERE artist_id={ARTIST_ID} AND start_time > NOW();
-        # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-        # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
-        # search for "band" should return "The Wild Sax Band".
+        
         response = {
             "count": len(data),
             "data": data
@@ -322,9 +415,9 @@ def search_artists():
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
+    # shows the artist page with the given artist_id
+    # TODO: replace with real artist data from the artist table, using artist_id
     try:
-        # shows the artist page with the given artist_id
-        # TODO: replace with real artist data from the artist table, using artist_id
         db_artist = Artist.query.filter_by(id=artist_id).first()
         #SQL: SELECT * FROM artist WHERE id={ID} LIMIT 1;
         now = datetime.now()
@@ -361,6 +454,7 @@ def show_artist(artist_id):
 
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
+    # TODO: populate form with fields from artist with ID <artist_id>
     error = False
     try:
         form = ArtistForm()
@@ -386,7 +480,6 @@ def edit_artist(artist_id):
         error = True
     finally:
         if not error:
-            # TODO: populate form with fields from artist with ID <artist_id>
             return render_template('forms/edit_artist.html', form=form, artist=artist)
         else:
             abort(404)
@@ -394,10 +487,10 @@ def edit_artist(artist_id):
 
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
 def edit_artist_submission(artist_id):
+    # TODO: take values from the form submitted, and update existing
+    # # artist record with ID <artist_id> using the new attributes
     error = False
     try:
-        # TODO: take values from the form submitted, and update existing
-        # # artist record with ID <artist_id> using the new attributes
         artist = Artist.query.filter_by(id=artist_id).first()
         #SQL: SELECT * FROM artist WHERE id={ARTIST_ID} LIMIT 1;
         artist.name = request.form['name']
@@ -431,10 +524,10 @@ def edit_artist_submission(artist_id):
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
+    # TODO: populate form with values from venue with ID <venue_id>
     error = False
     try:
         form = VenueForm()
-        # TODO: populate form with values from venue with ID <venue_id>
         db_venue = Venue.query.filter_by(id=venue_id).first()
         #SQL: SELECT * FROM venue WHERE id={ID} LIMIT 1;
         venue = {
@@ -513,10 +606,10 @@ def create_artist_form():
 
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
-    error = False
     # called upon submitting the new artist listing form
     # TODO: insert form data as a new Venue record in the db, instead
     # TODO: modify data to be the data object returned from db insertion
+    error = False
     try:
         name = request.form['name']
         city = request.form['city']
@@ -559,9 +652,9 @@ def create_artist_submission():
 
 @app.route('/shows')
 def shows():
-    try:
-        # displays list of shows at /shows
-        # TODO: replace with real venues data.
+    # displays list of shows at /shows
+    # TODO: replace with real venues data.
+    try:    
         shows = Show.query.join('artist').join('venue').all()
         #SQL: SELECT * FROM show INNER JOIN artist ON show.artist_id = artist.id INNER JOIN venue ON show.venue_id = venue.id;
         data = []
@@ -588,10 +681,10 @@ def create_shows():
 
 @app.route('/shows/create', methods=['POST'])
 def create_show_submission():
+    # called to create new shows in the db, upon submitting new show listing form
+    # TODO: insert form data as a new Show record in the db, instead
     error = False
     try:
-        # called to create new shows in the db, upon submitting new show listing form
-        # TODO: insert form data as a new Show record in the db, instead
         artist_id = request.form['artist_id']
         venue_id = request.form['venue_id']
         start_time = request.form['start_time']
