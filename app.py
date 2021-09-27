@@ -28,7 +28,7 @@ moment = Moment(app)
 app.config.from_object('config')
 
 # TODO: connect to a local postgresql database
-# https://stackoverflow.com/questions/9692962/flask-sqlalchemy-import-context-issue/9695045#9695045
+# from https://stackoverflow.com/questions/9692962/flask-sqlalchemy-import-context-issue/9695045#9695045
 db.init_app(app)
 migrate = Migrate(app, db)
 
@@ -56,7 +56,13 @@ app.jinja_env.filters['datetime'] = format_datetime
 
 @app.route('/')
 def index():
-    return render_template('pages/home.html')
+    now = datetime.now()
+    #also db.desc(), from https://github.com/pallets/flask-sqlalchemy/issues/451
+    artists = Artist.query.order_by(Artist.id.desc()).limit(10).all()
+    venues = Venue.query.order_by(Venue.id.desc()).limit(10).all()
+    artist_data = [{"id":artist.id, "name":artist.name} for artist in artists]
+    venue_data = [{"id":venue.id, "name":venue.name, "num_upcoming_shows":Show.query.filter(venue_id=venue.id).filter(start_time>now).count()} for venue in venues]
+    return render_template('pages/home.html', artist_data=artist_data, venue_data=venue_data)
 
 
 #  Venues
