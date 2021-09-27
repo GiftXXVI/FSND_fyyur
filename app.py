@@ -146,10 +146,9 @@ def search_venues():
         venues = Venue.query.filter(Venue.name.ilike(
             '%{rsearch}%'.format(rsearch=request.form.get('search_term', ''))))
         data = []
-
-        for venue in venues:
-            data.append({"id": venue.id, "name": venue.name,
-                         "num_upcoming_shows": 0})
+        now = datetime.now()
+        data = [{"id": venue.id, "name": venue.name, "num_upcoming_shows": Show.query.filter_by(
+            venue_id=venue.id).filter(Show.start_time > now).count()} for venue in venues]
         response = {
             "count": len(data),
             "data": data
@@ -166,6 +165,11 @@ def show_venue(venue_id):
     # show venue, venue shows and venue artist
     try:
         db_venue = Venue.query.filter_by(id=venue_id).first()
+        now = datetime.now()
+        past_shows = Show.query.filter_by(
+            venue_id=venue_id).filter(Show.start_time < now).join('artist').all()
+        upcoming_shows = Show.query.filter_by(
+            venue_id=venue_id).filter(Show.start_time > now).join('artist').all()
         venue = {
             "id": venue_id,
             "name": db_venue.name,
@@ -179,10 +183,10 @@ def show_venue(venue_id):
             "seeking_talent": db_venue.seeking_talent,
             "seeking_description": db_venue.seeking_description,
             "image_link": db_venue.image_link,
-            "past_shows": [],
-            "upcoming_shows": [],
-            "past_shows_count": 0,
-            "upcoming_shows_count": 0,
+            "past_shows": [{"artist_id": show.artist.id, "artist_name": show.artist.name, "artist_image_link": show.artist.image_link, "start_time": show.start_time} for show in past_shows],
+            "upcoming_shows": [{"artist_id": show.artist.id, "artist_name": show.artist.name, "artist_image_link": show.artist.image_link, "start_time": show.start_time} for show in past_shows],
+            "past_shows_count": len(past_shows),
+            "upcoming_shows_count": len(upcoming_shows),
         }
         return render_template('pages/show_venue.html', venue=venue)
     except:
@@ -282,7 +286,8 @@ def search_artists():
     try:
         artists = Artist.query.filter(Artist.name.ilike(
             '%{rname}%'.format(rname=request.form.get('search_term', ''))))
-        data = [{"id": artist.id, "name": artist.name, "num_upcoming_shows": 0}
+        now = datetime.now()
+        data = [{"id": artist.id, "name": artist.name, "num_upcoming_shows": Show.query.filter_by(artist_id=artist.id).filter(Show.start_time > now).join('artist').count()}
                 for artist in artists]
         # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
         # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
@@ -302,6 +307,11 @@ def show_artist(artist_id):
         # shows the artist page with the given artist_id
         # TODO: replace with real artist data from the artist table, using artist_id
         db_artist = Artist.query.filter_by(id=artist_id).first()
+        now = datetime.now()
+        past_shows = Show.query.filter_by(artist_id=artist_id).filter(
+            Show.start_time < now).join('venue').all()
+        upcoming_shows = Show.query.filter_by(artist_id=artist_id).filter(
+            Show.start_time > now).join('venue').all()
 
         data = {
             "id": db_artist.id,
@@ -315,15 +325,10 @@ def show_artist(artist_id):
             "seeking_venue": db_artist.seeking_venue,
             "seeking_description": db_artist.seeking_description,
             "image_link": db_artist.image_link,
-            "past_shows": [{
-                "venue_id": 1,
-                "venue_name": "The Musical Hop",
-                "venue_image_link": "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60",
-                "start_time": "2019-05-21T21:30:00.000Z"
-            }],
-            "upcoming_shows": [],
-            "past_shows_count": 1,
-            "upcoming_shows_count": 0,
+            "past_shows": [{"venue_id": show.venue.id, "venue_name": show.venue.name, "venue_image_link": show.venue.image_link, "start_time": show.start_time.strftime("%Y-%m-%dT%H:%M:%S")} for show in past_shows],
+            "upcoming_shows": [{"venue_id": show.venue.id, "venue_name": show.venue.name, "venue_image_link": show.venue.image_link, "start_time": show.start_time.strftime("%Y-%m-%dT%H:%M:%S")} for show in upcoming_shows],
+            "past_shows_count": len(past_shows),
+            "upcoming_shows_count": len(upcoming_shows),
         }
         return render_template('pages/show_artist.html', artist=data)
     except:
