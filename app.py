@@ -33,7 +33,9 @@ migrate = Migrate(app, db)
 # Models.
 #----------------------------------------------------------------------------#
 
-
+#SQL: CREATE TABLE venue(id integer PRIMARY KEY, name varchar, genres varchar(120), city varchar(120), state varchar(120),
+# address varchar(120), phone varchar(120), website_link varchar(120), image_link varchar(120), facebook_link varchar(120),
+# seeking_talent boolean NOT NULL, seeking_description varchar(120));
 class Venue(db.Model):
     __tablename__ = 'venue'
 
@@ -55,8 +57,10 @@ class Venue(db.Model):
         return f"<city {self.id}> {self.name}, {self.genres}, {self.city}, {self.state}, {self.address}, {self.phone}, {self.website_link}, {self.image_link}, {self.facebook_link}, {self.seeking_talent}, {self.seeking_description}"
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-
+    
+#SQL: CREATE TABLE artist(id integer PRIMARY KEY, name varchar, city varchar(120), state varchar(120), phone varchar(120),
+# genres varchar(120), website_link varchar(120), image_link varchar(120), facebook_link varchar(120), seeking_venue boolean NOT NULL,
+# seeking_description varchar);
 class Artist(db.Model):
     __tablename__ = 'artist'
 
@@ -77,7 +81,9 @@ class Artist(db.Model):
 
 # TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
 
-
+#SQL: CREATE TABLE show(id integer PRIMARY KEY, artist_id integer, venue_id integer, start_time timestamp,
+# CONSTRAINT show_artist FOREIGN KEY(artist_id) REFERENCES artist(id) ON DELETE CASCADE, 
+# CONSTRAINT show_venue FOREIGN KEY(venue_id) REFERENCES venue(id) ON DELETE CASCADE);
 class Show(db.Model):
     __tablename__ = "show"
 
@@ -124,10 +130,12 @@ def venues():
     data = []
     citystates = db.session.query(
         Venue.state, Venue.city).distinct(Venue.state, Venue.city).all()
+    #SQL: SELECT DISTINCT state, city FROM venue;
     now = datetime.now()
     for cstate in citystates:
         venues = db.session.query(
             Venue.id, Venue.name).filter_by(city=cstate[1], state=cstate[0]).all()
+        #SQL: SELECT id, name FROM venue WHERE city='{CITY}' AND state={STATE};
         data.append({
             "city": cstate[1],
             "state": cstate[0],
@@ -145,10 +153,12 @@ def search_venues():
         # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
         venues = Venue.query.filter(Venue.name.ilike(
             '%{rsearch}%'.format(rsearch=request.form.get('search_term', ''))))
+        #SQL: SELECT * FROM venue WHERE name LIKE '%{SEARCH}%';
         data = []
         now = datetime.now()
         data = [{"id": venue.id, "name": venue.name, "num_upcoming_shows": Show.query.filter_by(
             venue_id=venue.id).filter(Show.start_time > now).count()} for venue in venues]
+        #SQL: SELECT * FROM show WHERE venue_id={VENUE_ID} AND start_time > NOW();
         response = {
             "count": len(data),
             "data": data
@@ -168,8 +178,10 @@ def show_venue(venue_id):
         now = datetime.now()
         past_shows = Show.query.filter_by(
             venue_id=venue_id).filter(Show.start_time < now).join('artist').all()
+        #SQL: SELECT * FROM show WHERE venue_id={VENUE_ID} AND start_time < NOW();
         upcoming_shows = Show.query.filter_by(
             venue_id=venue_id).filter(Show.start_time > now).join('artist').all()
+        #SQL: SELECT * FROM show WHERE venue_id={VENUE_ID} AND start_time > NOW();
         venue = {
             "id": venue_id,
             "name": db_venue.name,
@@ -225,6 +237,8 @@ def create_venue_submission():
         seeking_description = request.form.get('seeking_description')
         venue = Venue(name=name, genres=genres, city=city, state=state, address=address, phone=phone,
                       website_link=website_link, image_link=image_link, facebook_link=facebook_link, seeking_talent=seeking_talent, seeking_description=seeking_description)
+        #SQL: INSERT INTO venue (name, genres, city, state, address, phone, website_link, image_link, facebook_link, seeking_talent, seeking_description)
+        #VALUES({NAME},{GENRES},{CITY},{STATE},{ADDRESS},{PHONE},{WEBSITE_LINK},{IMAGE_LINK},{FACEBOOK_LINK},{SEEKING_TALENT},{SEEKING_DESCRIPTION})
         db.session.add(venue)
         db.session.commit()
         flash('Venue ' + request.form['name'] + ' was successfully created!')
@@ -253,6 +267,7 @@ def delete_venue(venue_id):
     response = {'url': '', 'error': 0}
     try:
         Venue.query.filter_by(id=venue_id).delete()
+        #SQL: DELETE FROM venue WHERE id={ID};
         db.session.commit()
     except:
         db.session.rollback()
@@ -275,6 +290,7 @@ def artists():
     try:
         # TODO: replace with real data returned from querying the database
         artists = Artist.query.all()
+        #SQL: SELECT * FROM artist;
         data = [{"id": artist.id, "name": artist.name} for artist in artists]
         return render_template('pages/artists.html', artists=data)
     except:
@@ -286,9 +302,11 @@ def search_artists():
     try:
         artists = Artist.query.filter(Artist.name.ilike(
             '%{rname}%'.format(rname=request.form.get('search_term', ''))))
+        #SQL: SELECT * FROM artist WHERE name LIKE '%{SEARCH}%';
         now = datetime.now()
-        data = [{"id": artist.id, "name": artist.name, "num_upcoming_shows": Show.query.filter_by(artist_id=artist.id).filter(Show.start_time > now).join('artist').count()}
+        data = [{"id": artist.id, "name": artist.name, "num_upcoming_shows": Show.query.filter_by(artist_id=artist.id).filter(Show.start_time > now).count()}
                 for artist in artists]
+        #SQL: SELECT * FROM show WHERE artist_id={ARTIST_ID} AND start_time > NOW();
         # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
         # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
         # search for "band" should return "The Wild Sax Band".
@@ -307,11 +325,14 @@ def show_artist(artist_id):
         # shows the artist page with the given artist_id
         # TODO: replace with real artist data from the artist table, using artist_id
         db_artist = Artist.query.filter_by(id=artist_id).first()
+        #SQL: SELECT * FROM artist WHERE id={ID} LIMIT 1;
         now = datetime.now()
         past_shows = Show.query.filter_by(artist_id=artist_id).filter(
             Show.start_time < now).join('venue').all()
+        #SQL: SELECT * FROM show INNER JOIN venue ON show.venue_id = venue.id WHERE artist_id = {ARTIST_ID} AN start_time < NOW();
         upcoming_shows = Show.query.filter_by(artist_id=artist_id).filter(
             Show.start_time > now).join('venue').all()
+        #SQL: SELECT * FROM show INNER JOIN venue ON show.venue_id = venue.id WHERE artist_id = {ARTIST_ID} AN start_time > NOW();
 
         data = {
             "id": db_artist.id,
@@ -343,6 +364,7 @@ def edit_artist(artist_id):
     try:
         form = ArtistForm()
         db_artist = Artist.query.filter_by(id=artist_id).first()
+        #SQL: SELECT * FROM artist WHERE id={ID} LIMIT 1;
         artist = {
             "id": db_artist.id,
             "name": db_artist.name,
@@ -376,6 +398,7 @@ def edit_artist_submission(artist_id):
         # TODO: take values from the form submitted, and update existing
         # # artist record with ID <artist_id> using the new attributes
         artist = Artist.query.filter_by(id=artist_id).first()
+        #SQL: SELECT * FROM artist WHERE id={ARTIST_ID} LIMIT 1;
         artist.name = request.form['name']
         artist.genres = ','.join(request.form.getlist('genres'))
         artist.city = request.form['city']
@@ -387,12 +410,14 @@ def edit_artist_submission(artist_id):
         artist.seeking_venue = True if request.form.get(
             'seeking_venue') == "y" else False
         artist.seeking_description = request.form['seeking_description']
+        #UPDATE artist SET name={NAME}, genres={GENRES}, city={CITY}, state={STATE}, phone={PHONE},website_link={WEBSITE_LINK}, 
+        # facebook_link={FACEBOOK_LINK}, image_link={IMAGE_LINK}, seeking_venue={SEEKING_VENUE}, seeking_description={SEEKING_DESCRIPTION}
+        # WHERE id={ID};
         db.session.commit()
         flash('Artist ' + request.form['name'] + ' was successfully modified!')
     except:
         db.session.rollback()
         error = True
-        message = sys.exc_info()[1]
         flash('An error occured. Artist {rname} could not be modified.'.format(
             rname=request.form['name']))
     finally:
@@ -410,6 +435,7 @@ def edit_venue(venue_id):
         form = VenueForm()
         # TODO: populate form with values from venue with ID <venue_id>
         db_venue = Venue.query.filter_by(id=venue_id).first()
+        #SQL: SELECT * FROM venue WHERE id={ID} LIMIT 1;
         venue = {
             "id": venue_id,
             "name": db_venue.name,
@@ -443,6 +469,7 @@ def edit_venue_submission(venue_id):
     error = False
     try:
         venue = Venue.query.filter_by(id=venue_id).first()
+        #SQL: SELECT * FROM venue WHERE id={ID} LIMIT 1;
         venue.name = request.form.get('name')
         venue.genres = ','.join(request.form.getlist('genres'))
         venue.city = request.form.get('city')
@@ -455,13 +482,15 @@ def edit_venue_submission(venue_id):
         venue.seeking_talent = True if request.form.get(
             'seeking_talent') == "y" else False
         venue.seeking_description = request.form.get('seeking_description')
+        #UPDATE venue SET name={NAME}, genres={GENRES}, city={CITY}, state={STATE}, address={ADDRESS}, phone={PHONE}, 
+        # website_link={WEBSITE_LINK}, image_link={IMAGE_LINK}, facebook_link={FACEBOOK_LINK}, seeking_talent={SEEKING_TALENT},
+        # seeking_description = {SEEKING_DESCRIPTION} WHERE id={ID};
         db.session.commit()
         flash('Venue {rname} was successfully modified!'.format(
             rname=request.form['name']))
     except:
         db.session.rollback()
         error = True
-        message = sys.exc_info()[1]
         flash('An error occured. Venue {rname} could not be modified.'.format(
             rname=request.form['name']))
     finally:
@@ -502,6 +531,8 @@ def create_artist_submission():
         artist = Artist(name=name, city=city, state=state, phone=phone, genres=genres,
                         website_link=website_link, image_link=image_link, facebook_link=facebook_link, seeking_venue=seeking_venue, seeking_description=seeking_description)
         db.session.add(artist)
+        #SQL: INSERT INTO artist(name, city, state, phone, genres, website_link, image_link, facebook_link, seeking_venue, seeking_description)
+        #VALUES({NAME},{CITY},{STATE},{PHONE},{GENRES},{WEBSITE_LINK},{IMAGE_LINK},{FACEBOOK_LINK},{SEEKING_VENUE},{SEEKING_DESCRIPTION});
         db.session.commit()
         db.session.refresh(artist)
         data = artist
@@ -512,7 +543,6 @@ def create_artist_submission():
         error = True
         # TODO: on unsuccessful db insert, flash an error instead.
         # # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
-        message = sys.exc_info()[1]
         flash('An error occured. Artist {rname} was not created.'.format(
             rname=request.form['name']))
     finally:
@@ -532,6 +562,7 @@ def shows():
         # displays list of shows at /shows
         # TODO: replace with real venues data.
         shows = Show.query.join('artist').join('venue').all()
+        #SQL: SELECT * FROM show INNER JOIN artist ON show.artist_id = artist.id INNER JOIN venue ON show.venue_id = venue.id;
         data = []
         for show in shows:
             data.append({
@@ -566,6 +597,7 @@ def create_show_submission():
         show = Show(artist_id=artist_id, venue_id=venue_id,
                     start_time=start_time)
         db.session.add(show)
+        #SQL: INSERT INTO show(artist_id, venue_id, start_time) VALUES({ARTIST_ID}, {VENUE_ID}, {START_TIME});
         db.session.commit()
     except:
         db.session.rollback()
