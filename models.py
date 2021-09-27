@@ -6,9 +6,10 @@ db = SQLAlchemy()
 # Models.
 #----------------------------------------------------------------------------#
 
-#SQL: CREATE TABLE venue(id integer PRIMARY KEY, name varchar, genres varchar(120), city varchar(120), state varchar(120),
+# SQL: CREATE TABLE venue(id integer PRIMARY KEY, name varchar, genres varchar(120), city varchar(120), state varchar(120),
 # address varchar(120), phone varchar(120), website_link varchar(120), image_link varchar(120), facebook_link varchar(120),
 # seeking_talent boolean NOT NULL, seeking_description varchar(120));
+
 
 class Venue(db.Model):
 
@@ -66,14 +67,16 @@ class Venue(db.Model):
         return f"<city {self.id}> {self.name}, {self.genres}, {self.city}, {self.state}, {self.address}, {self.phone}, {self.website_link}, {self.image_link}, {self.facebook_link}, {self.seeking_talent}, {self.seeking_description}"
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
-    
+
 # TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
 
-#SQL: CREATE TABLE artist(id integer PRIMARY KEY, name varchar, city varchar(120), state varchar(120), phone varchar(120),
+# SQL: CREATE TABLE artist(id integer PRIMARY KEY, name varchar, city varchar(120), state varchar(120), phone varchar(120),
 # genres varchar(120), website_link varchar(120), image_link varchar(120), facebook_link varchar(120), seeking_venue boolean NOT NULL,
 # seeking_description varchar);
+
+
 class Artist(db.Model):
-    
+
     """
     A model class used to represent an Artist
     ...
@@ -125,9 +128,11 @@ class Artist(db.Model):
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
-#SQL: CREATE TABLE show(id integer PRIMARY KEY, artist_id integer, venue_id integer, start_time timestamp,
-# CONSTRAINT show_artist FOREIGN KEY(artist_id) REFERENCES artist(id) ON DELETE CASCADE, 
+# SQL: CREATE TABLE show(id integer PRIMARY KEY, artist_id integer, venue_id integer, start_time timestamp,
+# CONSTRAINT show_artist FOREIGN KEY(artist_id) REFERENCES artist(id) ON DELETE CASCADE,
 # CONSTRAINT show_venue FOREIGN KEY(venue_id) REFERENCES venue(id) ON DELETE CASCADE);
+
+
 class Show(db.Model):
 
     """
@@ -154,4 +159,5 @@ class Show(db.Model):
     venue_id = db.Column(db.Integer, db.ForeignKey(
         'venue.id'), nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
-    db.UniqueConstraint(artist_id, venue_id, start_time, name='UX_Artist_Venue')
+    db.UniqueConstraint(artist_id, venue_id, start_time,
+                        name='UX_Artist_Venue')
