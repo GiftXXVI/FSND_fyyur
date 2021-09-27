@@ -59,9 +59,12 @@ def index():
     now = datetime.now()
     #also db.desc(), from https://github.com/pallets/flask-sqlalchemy/issues/451
     artists = Artist.query.order_by(Artist.id.desc()).limit(10).all()
+    # SQL: SELECT * FROM artist LIMIT 10 ORDER BY id DESC;
     venues = Venue.query.order_by(Venue.id.desc()).limit(10).all()
+    # SQL: SELECT * FROM venue LIMIT 10 ORDER BY id DESC;
     artist_data = [{"id":artist.id, "name":artist.name} for artist in artists]
     venue_data = [{"id":venue.id, "name":venue.name, "num_upcoming_shows":Show.query.filter(venue_id=venue.id).filter(start_time>now).count()} for venue in venues]
+    # SQL: SELECT COUNT(*) FROM show WHERE venue_id={VENUE_ID} AND start_time={START_TIME};
     return render_template('pages/home.html', artist_data=artist_data, venue_data=venue_data)
 
 
@@ -97,8 +100,8 @@ def search_venues():
         # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
         # search for Hop should return "The Musical Hop".
         # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-        venues = Venue.query.filter(Venue.name.ilike(
-            '%{rsearch}%'.format(rsearch=request.form.get('search_term', ''))))
+        param = '%rsearch%'.format(rsearch=request.form.get('search_term',''))
+        venues = Venue.query.filter(Venue.name.ilike(param)) | Venue.query.filter(Venue.city.ilike(param)) | Venue.query.filter(Venue.state.ilike(param))
         # SQL: SELECT * FROM venue WHERE name LIKE '%{SEARCH}%';
         data = []
         now = datetime.now()
@@ -252,6 +255,8 @@ def search_artists():
     # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
     # search for "band" should return "The Wild Sax Band".
     try:
+        param = '%rsearch%'.format(rsearch=request.form.get('search_term',''))
+        artists = Artist.query.filter(Artist.name.ilike(param)) | Artist.query.filter(Artist.city.ilike(param)) | Artist.query.filter(Artist.state.ilike(param))
         artists = Artist.query.filter(Artist.name.ilike(
             '%{rname}%'.format(rname=request.form.get('search_term', ''))))
         # SQL: SELECT * FROM artist WHERE name LIKE '%{SEARCH}%';
