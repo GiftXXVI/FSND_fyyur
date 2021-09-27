@@ -40,7 +40,7 @@ class Venue(db.Model):
     __tablename__ = 'venue'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
+    name = db.Column(db.String, unique=True)
     genres = db.Column(db.String(120))
     city = db.Column(db.String(120))
     state = db.Column(db.String(120))
@@ -65,7 +65,7 @@ class Artist(db.Model):
     __tablename__ = 'artist'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
+    name = db.Column(db.String, unique=True)
     city = db.Column(db.String(120))
     state = db.Column(db.String(120))
     phone = db.Column(db.String(120))
@@ -93,6 +93,7 @@ class Show(db.Model):
     venue_id = db.Column(db.Integer, db.ForeignKey(
         'venue.id'))
     start_time = db.Column(db.DateTime, nullable=False)
+    db.UniqueConstraint(artist_id, venue_id, start_time,name='UX_Artist_Venue')
 #----------------------------------------------------------------------------#
 # Filters.
 #----------------------------------------------------------------------------#
