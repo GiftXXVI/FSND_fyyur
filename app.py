@@ -102,9 +102,9 @@ def search_venues():
         # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
         # search for Hop should return "The Musical Hop".
         # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-        param = '%rsearch%'.format(rsearch=request.form.get('search_term', ''))
-        venues = Venue.query.filter(Venue.name.ilike(param)) | Venue.query.filter(
-            Venue.city.ilike(param)) | Venue.query.filter(Venue.state.ilike(param))
+        param = '%{rsearch}%'.format(rsearch=request.form.get('search_term', ''))
+        #from https://stackoverflow.com/questions/40535547/flask-sqlalchemy-filter-by-value-or-another/40546355
+        venues = Venue.query.filter(Venue.name.ilike(param) | Venue.city.ilike(param) | Venue.state.ilike(param)).all()
         # SQL: SELECT * FROM venue WHERE name LIKE '%{SEARCH}%';
         data = []
         now = datetime.now()
@@ -177,7 +177,7 @@ def create_venue_submission():
     error = False
 
     try:
-        if(form.validate()):
+        if form.validate():
             name = form.name.data
             genres = ','.join(form.genres.data)
             city = form.city.data
@@ -187,7 +187,7 @@ def create_venue_submission():
             website_link = form.website_link.data
             image_link = form.image_link.data
             facebook_link = form.facebook_link.data
-            seeking_talent = True if form.seeking_talent.data == 'y' else False
+            seeking_talent = form.seeking_talent.data
             seeking_description = form.seeking_description.data
             venue = Venue(name=name, genres=genres, city=city, state=state, address=address, phone=phone,
                           website_link=website_link, image_link=image_link, facebook_link=facebook_link, seeking_talent=seeking_talent, seeking_description=seeking_description)
@@ -266,11 +266,8 @@ def search_artists():
     # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
     # search for "band" should return "The Wild Sax Band".
     try:
-        param = '%rsearch%'.format(rsearch=request.form.get('search_term', ''))
-        artists = Artist.query.filter(Artist.name.ilike(param)) | Artist.query.filter(
-            Artist.city.ilike(param)) | Artist.query.filter(Artist.state.ilike(param))
-        artists = Artist.query.filter(Artist.name.ilike(
-            '%{rname}%'.format(rname=request.form.get('search_term', ''))))
+        param = '%{rsearch}%'.format(rsearch=request.form.get('search_term', ''))
+        artists = Artist.query.filter(Artist.name.ilike(param) | Artist.city.ilike(param) | Artist.state.ilike(param)).all()
         # SQL: SELECT * FROM artist WHERE name LIKE '%{SEARCH}%';
         now = datetime.now()
         data = [{"id": artist.id, "name": artist.name, "num_upcoming_shows": Show.query.filter_by(artist_id=artist.id).filter(Show.start_time > now).count()}
@@ -483,39 +480,49 @@ def create_artist_submission():
     # TODO: insert form data as a new Venue record in the db, instead
     # TODO: modify data to be the data object returned from db insertion
     error = False
+    form = ArtistForm()
     try:
-        name = request.form['name']
-        city = request.form['city']
-        state = request.form['state']
-        phone = request.form['phone']
-        genres = ','.join(request.form.getlist('genres'))
-        website_link = request.form['website_link']
-        image_link = request.form['image_link']
-        facebook_link = request.form['facebook_link']
-        seeking_venue = True if request.form.get(
-            'seeking_venue') == 'y' else False
-        seeking_description = request.form.get('seeking_description')
-        artist = Artist(name=name, city=city, state=state, phone=phone, genres=genres,
-                        website_link=website_link, image_link=image_link, facebook_link=facebook_link, seeking_venue=seeking_venue, seeking_description=seeking_description)
-        db.session.add(artist)
-        # SQL: INSERT INTO artist(name, city, state, phone, genres, website_link, image_link, facebook_link, seeking_venue, seeking_description)
-        # VALUES({NAME},{CITY},{STATE},{PHONE},{GENRES},{WEBSITE_LINK},{IMAGE_LINK},{FACEBOOK_LINK},{SEEKING_VENUE},{SEEKING_DESCRIPTION});
-        db.session.commit()
-        db.session.refresh(artist)
-        data = artist
-        # on successful db insert, flash success
-        flash(f'Artist {data.name} was successfully listed!')
+        if form.validate():
+            name = form.name.data
+            city = form.city.data
+            state = form.state.data
+            phone = form.phone.data
+            genres = ','.join(form.genres.data)
+            website_link = form.website_link.data
+            image_link = form.image_link.data
+            facebook_link = form.facebook_link.data
+            seeking_venue = form.seeking_venue.data
+            seeking_description = form.seeking_description.data
+            artist = Artist(name=name, city=city, state=state, phone=phone, genres=genres,
+                            website_link=website_link, image_link=image_link, facebook_link=facebook_link, seeking_venue=seeking_venue, seeking_description=seeking_description)
+            db.session.add(artist)
+            # SQL: INSERT INTO artist(name, city, state, phone, genres, website_link, image_link, facebook_link, seeking_venue, seeking_description)
+            # VALUES({NAME},{CITY},{STATE},{PHONE},{GENRES},{WEBSITE_LINK},{IMAGE_LINK},{FACEBOOK_LINK},{SEEKING_VENUE},{SEEKING_DESCRIPTION});
+            db.session.commit()
+            db.session.refresh(artist)
+            data = artist
+
+            # on successful db insert, flash success
+            flash(f'Artist {data.name} was successfully listed!{form.seeking_venue.data}')
+        else:
+            flash('There was an error with the input. Here are the details: {errors}'.format(
+                errors=form.errors))
+            error = True
     except:
         db.session.rollback()
         error = True
         # TODO: on unsuccessful db insert, flash an error instead.
         # # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
-        flash('An error occured. Artist {rname} was not created.'.format(
-            rname=request.form['name']))
+
+        if Artist.query.filter_by(name=form.name.data).count() > 0:
+            flash('{rname} already exists.'.format(rname=form.name.data))
+        else:
+            flash('An error occurred. Artist {rname} could not be listed.'.format(
+                rname=form.name.data))
     finally:
         db.session.close()
     if not error:
-        return render_template('pages/home.html')
+        return redirect(url_for('artists'))
     else:
         abort(500)
 
@@ -574,7 +581,7 @@ def create_show_submission():
         if not error:
             # on successful db insert, flash success
             flash('Show was successfully listed!')
-            return render_template('pages/home.html')
+            return redirect(url_for('shows'))
         else:
             # TODO: on unsuccessful db insert, flash an error instead.
             # e.g., flash('An error occurred. Show could not be listed.')
