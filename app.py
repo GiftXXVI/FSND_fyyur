@@ -102,9 +102,11 @@ def search_venues():
         # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
         # search for Hop should return "The Musical Hop".
         # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-        param = '%{rsearch}%'.format(rsearch=request.form.get('search_term', ''))
-        #from https://stackoverflow.com/questions/40535547/flask-sqlalchemy-filter-by-value-or-another/40546355
-        venues = Venue.query.filter(Venue.name.ilike(param) | Venue.city.ilike(param) | Venue.state.ilike(param)).all()
+        param = '%{rsearch}%'.format(
+            rsearch=request.form.get('search_term', ''))
+        # from https://stackoverflow.com/questions/40535547/flask-sqlalchemy-filter-by-value-or-another/40546355
+        venues = Venue.query.filter(Venue.name.ilike(
+            param) | Venue.city.ilike(param) | Venue.state.ilike(param)).all()
         # SQL: SELECT * FROM venue WHERE name LIKE '%{SEARCH}%';
         data = []
         now = datetime.now()
@@ -197,10 +199,9 @@ def create_venue_submission():
             db.session.commit()
             db.session.refresh(venue)
             data = venue
-            flash('Venue ' + data.name + ' was successfully created!')
+            flash(f'Venue {data.name} was successfully created!')
         else:
-            flash('There was an error with the input. Here are the details: {errors}'.format(
-                errors=form.errors))
+            flash(f'The input had the following errors: {form.errors}')
             error = True
             # TODO: on unsuccessful db insert, flash an error instead.
             # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
@@ -208,10 +209,9 @@ def create_venue_submission():
     except:
         db.session.rollback()
         if Venue.query.filter_by(name=form.name.data).count() > 0:
-            flash('{rname} already exists.'.format(rname=form.name.data))
+            flash(f'{form.name.data} already exists.')
         else:
-            flash('An error occurred. Venue {rname} could not be listed.'.format(
-                rname=form.name.data))
+            flash(f'Venue {form.name.data} could not be listed.')
         error = True
     finally:
         db.session.close()
@@ -266,8 +266,10 @@ def search_artists():
     # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
     # search for "band" should return "The Wild Sax Band".
     try:
-        param = '%{rsearch}%'.format(rsearch=request.form.get('search_term', ''))
-        artists = Artist.query.filter(Artist.name.ilike(param) | Artist.city.ilike(param) | Artist.state.ilike(param)).all()
+        param = '%{rsearch}%'.format(
+            rsearch=request.form.get('search_term', ''))
+        artists = Artist.query.filter(Artist.name.ilike(
+            param) | Artist.city.ilike(param) | Artist.state.ilike(param)).all()
         # SQL: SELECT * FROM artist WHERE name LIKE '%{SEARCH}%';
         now = datetime.now()
         data = [{"id": artist.id, "name": artist.name, "num_upcoming_shows": Show.query.filter_by(artist_id=artist.id).filter(Show.start_time > now).count()}
@@ -360,30 +362,33 @@ def edit_artist_submission(artist_id):
     # TODO: take values from the form submitted, and update existing
     # # artist record with ID <artist_id> using the new attributes
     error = False
+    form = ArtistForm()
     try:
-        artist = Artist.query.filter_by(id=artist_id).first()
-        # SQL: SELECT * FROM artist WHERE id={ARTIST_ID} LIMIT 1;
-        artist.name = request.form['name']
-        artist.genres = ','.join(request.form.getlist('genres'))
-        artist.city = request.form['city']
-        artist.state = request.form['state']
-        artist.phone = request.form['phone']
-        artist.website_link = request.form['website_link']
-        artist.facebook_link = request.form['facebook_link']
-        artist.image_link = request.form['image_link']
-        artist.seeking_venue = True if request.form.get(
-            'seeking_venue') == "y" else False
-        artist.seeking_description = request.form['seeking_description']
-        # UPDATE artist SET name={NAME}, genres={GENRES}, city={CITY}, state={STATE}, phone={PHONE},website_link={WEBSITE_LINK},
-        # facebook_link={FACEBOOK_LINK}, image_link={IMAGE_LINK}, seeking_venue={SEEKING_VENUE}, seeking_description={SEEKING_DESCRIPTION}
-        # WHERE id={ID};
-        db.session.commit()
-        flash('Artist ' + request.form['name'] + ' was successfully modified!')
+        if form.validate():
+            artist = Artist.query.filter_by(id=artist_id).first()
+            # SQL: SELECT * FROM artist WHERE id={ARTIST_ID} LIMIT 1;
+            artist.name = form.name.data
+            artist.genres = ','.join(form.genres.data)
+            artist.city = form.city.data
+            artist.state = form.state.data
+            artist.phone = form.phone.data
+            artist.website_link = form.website_link.data
+            artist.facebook_link = form.facebook_link.data
+            artist.image_link = form.image_link.data
+            artist.seeking_venue = form.seeking_venue.data
+            artist.seeking_description = form.seeking_description.data
+            # UPDATE artist SET name={NAME}, genres={GENRES}, city={CITY}, state={STATE}, phone={PHONE},website_link={WEBSITE_LINK},
+            # facebook_link={FACEBOOK_LINK}, image_link={IMAGE_LINK}, seeking_venue={SEEKING_VENUE}, seeking_description={SEEKING_DESCRIPTION}
+            # WHERE id={ID};
+            db.session.commit()
+            flash(f'Artist {form.name.data} was successfully modified!')
+        else:
+            flash(f'The input had the following errors: {form.errors}')
+            error = True
     except:
         db.session.rollback()
         error = True
-        flash('An error occured. Artist {rname} could not be modified.'.format(
-            rname=request.form['name']))
+        flash(f'Artist {form.name.data} could not be modified.')
     finally:
         db.session.close()
         if not error:
@@ -417,7 +422,7 @@ def edit_venue(venue_id):
         form.genres.data = venue['genres']
         form.state.data = venue['state']
     except:
-        flash(f'An error occurred. Venue id {venue_id} could not be found.')
+        flash(f'Venue id {venue_id} could not be found.')
         error = True
     finally:
         if not error:
@@ -431,32 +436,34 @@ def edit_venue_submission(venue_id):
     # TODO: take values from the form submitted, and update existing
     # venue record with ID <venue_id> using the new attributes
     error = False
+    form = VenueForm()
     try:
-        venue = Venue.query.filter_by(id=venue_id).first()
-        # SQL: SELECT * FROM venue WHERE id={ID} LIMIT 1;
-        venue.name = request.form.get('name')
-        venue.genres = ','.join(request.form.getlist('genres'))
-        venue.city = request.form.get('city')
-        venue.state = request.form.get('state')
-        venue.address = request.form.get('address')
-        venue.phone = request.form.get('phone')
-        venue.website_link = request.form.get('website_link')
-        venue.image_link = request.form.get('image_link')
-        venue.facebook_link = request.form.get('facebook_link')
-        venue.seeking_talent = True if request.form.get(
-            'seeking_talent') == "y" else False
-        venue.seeking_description = request.form.get('seeking_description')
-        # UPDATE venue SET name={NAME}, genres={GENRES}, city={CITY}, state={STATE}, address={ADDRESS}, phone={PHONE},
-        # website_link={WEBSITE_LINK}, image_link={IMAGE_LINK}, facebook_link={FACEBOOK_LINK}, seeking_talent={SEEKING_TALENT},
-        # seeking_description = {SEEKING_DESCRIPTION} WHERE id={ID};
-        db.session.commit()
-        flash('Venue {rname} was successfully modified!'.format(
-            rname=request.form['name']))
+        if form.validate():
+            venue = Venue.query.filter_by(id=venue_id).first()
+            # SQL: SELECT * FROM venue WHERE id={ID} LIMIT 1;
+            venue.name = form.name.data
+            venue.genres = ','.join(form.genres.data)
+            venue.city = form.city.data
+            venue.state = form.state.data
+            venue.address = form.address.data
+            venue.phone = form.phone.data
+            venue.website_link = form.website_link.data
+            venue.image_link = form.image_link.data
+            venue.facebook_link = form.facebook_link.data
+            venue.seeking_talent = form.seeking_talent.data
+            venue.seeking_description = form.seeking_description.data
+            # UPDATE venue SET name={NAME}, genres={GENRES}, city={CITY}, state={STATE}, address={ADDRESS}, phone={PHONE},
+            # website_link={WEBSITE_LINK}, image_link={IMAGE_LINK}, facebook_link={FACEBOOK_LINK}, seeking_talent={SEEKING_TALENT},
+            # seeking_description = {SEEKING_DESCRIPTION} WHERE id={ID};
+            db.session.commit()
+            flash(f'Venue {form.name.data} was successfully modified!')
+        else:
+            flash(f'The input had the following errors: {form.errors}')
+            error = True
     except:
         db.session.rollback()
         error = True
-        flash('An error occured. Venue {rname} could not be modified.'.format(
-            rname=request.form['name']))
+        flash(f'Venue {form.name.data} could not be modified.')
     finally:
         db.session.close()
         if not error:
@@ -503,10 +510,9 @@ def create_artist_submission():
             data = artist
 
             # on successful db insert, flash success
-            flash(f'Artist {data.name} was successfully listed!{form.seeking_venue.data}')
+            flash(f'Artist {data.name} was successfully listed!')
         else:
-            flash('There was an error with the input. Here are the details: {errors}'.format(
-                errors=form.errors))
+            flash(f'The input had the following errors: {form.errors}')
             error = True
     except:
         db.session.rollback()
@@ -515,10 +521,10 @@ def create_artist_submission():
         # # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
 
         if Artist.query.filter_by(name=form.name.data).count() > 0:
-            flash('{rname} already exists.'.format(rname=form.name.data))
+            flash(f'{form.name.data} already exists.')
         else:
-            flash('An error occurred. Artist {rname} could not be listed.'.format(
-                rname=form.name.data))
+            flash(
+                f'An error occurred. Artist {form.name.data} could not be listed.')
     finally:
         db.session.close()
     if not error:
@@ -564,29 +570,34 @@ def create_show_submission():
     # called to create new shows in the db, upon submitting new show listing form
     # TODO: insert form data as a new Show record in the db, instead
     error = False
+    form = ShowForm()
     try:
-        artist_id = request.form['artist_id']
-        venue_id = request.form['venue_id']
-        start_time = request.form['start_time']
-        show = Show(artist_id=artist_id, venue_id=venue_id,
-                    start_time=start_time)
-        db.session.add(show)
-        # SQL: INSERT INTO show(artist_id, venue_id, start_time) VALUES({ARTIST_ID}, {VENUE_ID}, {START_TIME});
-        db.session.commit()
+        if form.validate():
+            artist_id = form.artist_id.data
+            venue_id = form.venue_id.data
+            start_time = form.start_time.data
+            show = Show(artist_id=artist_id, venue_id=venue_id,
+                        start_time=start_time)
+            db.session.add(show)
+            # SQL: INSERT INTO show(artist_id, venue_id, start_time) VALUES({ARTIST_ID}, {VENUE_ID}, {START_TIME});
+            db.session.commit()
+            # on successful db insert, flash success
+            flash('Show was successfully listed!')
+        else:
+            flash(f'The input had the following errors: {form.errors}')
+            error = True
     except:
         db.session.rollback()
         error = True
+        # TODO: on unsuccessful db insert, flash an error instead.
+        # e.g., flash('An error occurred. Show could not be listed.')
+        # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+        flash('An error occured. The show was not created.')
     finally:
         db.session.close()
         if not error:
-            # on successful db insert, flash success
-            flash('Show was successfully listed!')
             return redirect(url_for('shows'))
         else:
-            # TODO: on unsuccessful db insert, flash an error instead.
-            # e.g., flash('An error occurred. Show could not be listed.')
-            # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-            flash('An error occured. The show was not created.')
             abort(500)
 
 
